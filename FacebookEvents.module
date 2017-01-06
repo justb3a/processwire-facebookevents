@@ -1,0 +1,232 @@
+<?php namespace ProcessWire;
+
+/**
+ * FacebookEvents
+ *
+ * See README.md for usage instructions.
+ *
+ * ProcessWire 3.x
+ * Licensed under GNU/GPL v2, see LICENSE.TXT
+ *
+ *
+ * @author Tabea David <info@justonestep.de>
+ * @version 0.0.1
+ * @copyright Copyright (c) 2017 justonestep.de, <info@justonestep.de>
+ * @see https://github.com/justonestep/processwire-facebookevents
+ * @see http://www.processwire.com
+ */
+
+/**
+ * Class FacebookEvents
+ */
+class FacebookEvents extends WireData implements Module, ConfigurableModule {
+
+    const FB_GRAPH_VERSION = '2.8';
+    const FB_GRAPH_URL = 'https://graph.facebook.com/';
+    const FB_ACCESS_URL = '%soauth/access_token?client_id=%s&client_secret=%s&grant_type=client_credentials';
+    const FB_PAGEEVENTS_URL = '%sv%s/%s/events/?fields=%s&%s&since=%s&until=%s';
+    const FB_PAGEINFO_URL = '%sv%s/%s?%s';
+    const FB_APP_URL = '%sv%s/app?%s';
+    const FIELDS = 'id,name,timezone,start_time,end_time,description';
+    const CACHE_KEY = 'Module.FacebookEvents';
+
+  /**
+   * Retrieves module meta data
+   * Implementation of the Module interface
+   *
+   * @return array
+   * @see http://processwire.com/apigen/class-Module.html
+   */
+  public static function getModuleInfo() {
+    return array(
+      'title' => 'Facebook Events',
+      'summary' => 'ProcessWire module to get Facebook Page Events using the Graph API.',
+      'version' => 001,
+      'href' => 'https://github.com/justonestep/processwire-facebookevents',
+      'singular' => true,
+      'autoload' => true,
+      'icon' => 'facebook'
+    );
+  }
+
+  /**
+   * Initialize the module
+   * Initialize a new web contact form
+   *
+   * Implementation of the Module interface
+   *
+   * ProcessWire calls this when the module is loaded. For 'autoload' modules, this will be called
+   * when ProcessWire's API is ready. As a result, this is a good place to attach hooks.
+   *
+   * @see http://processwire.com/apigen/class-Module.html
+   *
+   * @param Template $template Template object holding the form's fields.
+   *
+   */
+  public function init() {
+    $this->addHookBefore('Modules::saveModuleConfigData', $this, 'resetFbPageInformations');
+    $this->addHookAfter('Modules::saveModuleConfigData', $this, 'clearModuleCache');
+  }
+
+  /**
+   * Hook clear Module Cache
+   *
+   * @param HookEvent $event
+   */
+  public function clearModuleCache(HookEvent $event) {
+    $this->clearCacheNow();
+  }
+
+  /*
+   * Clear module cache – NOW!
+   */
+  private function clearCacheNow() {
+    $this->cache->delete(self::CACHE_KEY);
+    $this->message("[{$this->className()}]: All module caches have been deleted.", Notice::debug);
+  }
+
+  /**
+   * Hook reset Facebook page informations
+   * if pageName has been changed
+   * before module config data has been saved
+   *
+   * @param HookEvent $event
+   */
+  public function resetFbPageInformations(HookEvent $event) {
+    // check whether pageName has been changed
+    $data = $event->arguments(1);
+    if ($data['pageName'] !== $this->data['pageName']) {
+      // clear pageId to be generated next time
+      $data['pageId'] = '';
+      $event->arguments(1, $data);
+    }
+  }
+
+  /**
+   * Get Facebook page events
+   */
+  public function getEvents() {
+    $json = $this->cache->get(self::CACHE_KEY);
+
+    // not cached?
+    if (!$json || $this->data['cacheExpire'] === 'never') {
+      $sinceDate = strtotime(date('Y-m-d'));
+      $untilDate = strtotime(date('Y-m-d', strtotime('+1 years')));
+      $accessToken = $this->getAccessToken();
+
+      if (!$this->data['pageId']) $this->getAndSaveFbPageInformations($accessToken);
+
+      // get events
+      $url = sprintf(
+        self::FB_PAGEEVENTS_URL,
+        self::FB_GRAPH_URL, self::FB_GRAPH_VERSION, $this->data['pageId'], self::FIELDS, $accessToken, $sinceDate, $untilDate
+      );
+
+      $http = new WireHttp();
+      $response = $http->getJSON($url);
+      if (!$response) {
+        $this->log->save('errors', "[{$this->className()}]: Http Request failed {$http->getError()}");
+        return array();
+      }
+
+      $json = $response['data'];
+      $expire = constant('ProcessWire\WireCache::expire' . ucfirst($this->cacheExpire));
+      $this->cache->save(self::CACHE_KEY, $json, $expire);
+    }
+
+    return $json;
+  }
+
+  /**
+   * Get access token
+   * test existing, if not valid generate new one
+   */
+  private function getAccessToken() {
+    $http = new WireHttp();
+
+    // test/update existing accessToken
+    if (isset($this->data['accessToken'])) {
+      $accessToken = $this->data['accessToken'];
+
+      $http->getJSON(sprintf(self::FB_APP_URL, self::FB_GRAPH_URL, self::FB_GRAPH_VERSION, $accessToken));
+      if ($http->getHttpCode() === 200) return $accessToken;
+    }
+
+    $url = sprintf(
+      self::FB_ACCESS_URL,
+      self::FB_GRAPH_URL, $this->data['clientId'], $this->data['clientSecret']
+    );
+
+    $response = $http->get($url);
+
+    if (!$response) {
+      $this->log->save('errors', "[{$this->className()}]: Could not get access token {$http->getError()}");
+      return null;
+    }
+
+    $accessToken = $this->sanitizer->entities($response);
+
+    // update module config data
+    $this->data['accessToken'] = $accessToken;
+    $this->modules->saveModuleConfigData($this->className(), $this->data);
+    $this->clearCacheNow();
+
+    return $accessToken;
+  }
+
+  /**
+   * Get and save Facebook page informations
+   *
+   * @param string $accessToken
+   */
+  private function getAndSaveFbPageInformations($accessToken) {
+    $pageName = $this->sanitizer->pageName($this->data['pageName']);
+
+    $http = new WireHttp();
+    $url = sprintf(
+      self::FB_PAGEINFO_URL,
+      self::FB_GRAPH_URL, self::FB_GRAPH_VERSION, $pageName, $accessToken
+    );
+
+    // get page ID and name
+    $response = $http->getJSON($url);
+
+    if (!$response) {
+      $this->log->save('errors', "[{$this->className()}] Some of the aliases you requested do not exist: `{$this->data['pageName']}`");
+      return null;
+    }
+
+    // update module config data
+    $this->data['pageId'] = $response['id'];
+    $this->data['pageName'] = $response['name'];
+    $this->modules->saveModuleConfigData($this->className(), $this->data);
+    $this->clearCacheNow();
+  }
+
+  /**
+   * Combine Dates for an event
+   *
+   * @param array $event
+   * @param string $formatDate, Default: 'd.m.Y'
+   * @param string $formatTime, Default: 'H:i'
+   * @param string $divider, Default: '-'
+   * @return array('dates', 'times')
+   */
+  public function getDates($event, $formatDate = 'd.m.Y', $formatTime = 'H:i', $divider = '-') {
+    $dateStart = new \DateTime($event['start_time']);
+    $dateEnd = new \DateTime($event['end_time']);
+
+    // one-day event
+    if ($dateStart->format('Ymd') === $dateEnd->format('Ymd')) {
+      $dates = $dateStart->format($formatDate);
+      $times = "{$dateStart->format($formatTime)} $divider {$dateEnd->format($formatTime)}";
+    } else {
+      // multi-day event
+      $dates = "{$dateStart->format($formatDate)} $divider {$dateEnd->format($formatDate)}";
+      $times = "{$dateStart->format($formatTime)} $divider {$dateEnd->format($formatTime)}";
+    }
+
+    return array('dates' => $dates, 'times' => $times);
+  }
+
+}
