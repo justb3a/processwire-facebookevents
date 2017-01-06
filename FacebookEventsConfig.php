@@ -14,7 +14,8 @@ class FacebookEventsConfig extends ModuleConfig {
       'clientSecret' => '',
       'pageId' => '',
       'pageName' => '',
-      'cacheExpire' => 'daily'
+      'cacheExpire' => 'daily',
+      'accessToken' => ''
     );
   }
 
