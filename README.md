@@ -21,6 +21,14 @@ $events = $modules->get('FacebookEvents')->getEvents();
 
 ## Output Events
 
+```php
+echo "<ul>";
+foreach ($events as $event) {
+  echo "<li>{$event['name']}</li>";
+}
+echo "</ul>";
+```
+
 ```twig
 {% for event in events|reverse %}
   {% if event.start_time|date('U') > date().timestamp %}
