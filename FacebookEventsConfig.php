@@ -15,7 +15,8 @@ class FacebookEventsConfig extends ModuleConfig {
       'pageId' => '',
       'pageName' => '',
       'cacheExpire' => 'daily',
-      'accessToken' => ''
+      'accessToken' => '',
+      'limit' => 25
     );
   }
 
@@ -79,12 +80,20 @@ class FacebookEventsConfig extends ModuleConfig {
     $field->description = __('By default a cache lasts for one day. You could select another lifetime.');
     $field->attr('name', 'cacheExpire');
     $field->attr('value', $cacheExpire);
-    $field->columnWidth = 100;
+    $field->columnWidth = 50;
     $field->required = 1;
     $lifetimes = array('never', 'save', 'now', 'hourly', 'daily', 'weekly', 'monthly');
     foreach($lifetimes as $lifetime) {
       $field->addOption($lifetime, $lifetime);
     }
+    $inputfields->add($field);
+
+    // field limit number of events
+    $field = $this->modules->get('InputfieldInteger');
+    $field->name = 'limit';
+    $field->label = __('Limit number of events');
+    $field->columnWidth = 50;
+    $field->required = 1;
     $inputfields->add($field);
 
     return $inputfields;

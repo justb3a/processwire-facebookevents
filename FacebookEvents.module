@@ -10,7 +10,7 @@
  *
  *
  * @author Tabea David <info@justonestep.de>
- * @version 0.0.3
+ * @version 0.0.4
  * @copyright Copyright (c) 2017 justonestep.de, <info@justonestep.de>
  * @see https://github.com/justb3a/processwire-facebookevents
  * @see http://www.processwire.com
@@ -26,7 +26,7 @@ class FacebookEvents extends WireData implements Module, ConfigurableModule {
     const FB_ACCESS_URL = '%soauth/access_token?client_id=%s&client_secret=%s&grant_type=client_credentials';
 
     // @see: https://developers.facebook.com/docs/graph-api/reference/v2.9/page/events
-    const FB_PAGEEVENTS_URL = '%sv%s/%s/events/?fields=%s&access_token=%s&since=%s&until=%s';
+    const FB_PAGEEVENTS_URL = '%sv%s/%s/events/?fields=%s&access_token=%s&since=%s&until=%s&limit=%d';
 
     const FB_PAGEINFO_URL = '%sv%s/%s?access_token=%s';
     const FB_APP_URL = '%sv%s/app?%s';
@@ -44,7 +44,7 @@ class FacebookEvents extends WireData implements Module, ConfigurableModule {
     return array(
       'title' => 'Facebook Events',
       'summary' => 'ProcessWire module to get Facebook Page Events using the Graph API.',
-      'version' => 003,
+      'version' => 004,
       'href' => 'https://github.com/justb3a/processwire-facebookevents',
       'icon' => 'facebook'
     );
@@ -120,7 +120,7 @@ class FacebookEvents extends WireData implements Module, ConfigurableModule {
       // get events
       $url = sprintf(
         self::FB_PAGEEVENTS_URL,
-        self::FB_GRAPH_URL, self::FB_GRAPH_VERSION, $this->data['pageId'], self::FIELDS, $accessToken, $sinceDate, $untilDate
+        self::FB_GRAPH_URL, self::FB_GRAPH_VERSION, $this->data['pageId'], self::FIELDS, $accessToken, $sinceDate, $untilDate, $this->limit
       );
 
       $http = new WireHttp();
