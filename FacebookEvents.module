@@ -10,7 +10,7 @@
  *
  *
  * @author Tabea David <info@justonestep.de>
- * @version 0.0.4
+ * @version 0.0.5
  * @copyright Copyright (c) 2017 justonestep.de, <info@justonestep.de>
  * @see https://github.com/justb3a/processwire-facebookevents
  * @see http://www.processwire.com
@@ -29,7 +29,7 @@ class FacebookEvents extends WireData implements Module, ConfigurableModule {
     const FB_PAGEEVENTS_URL = '%sv%s/%s/events/?fields=%s&access_token=%s&since=%s&until=%s&limit=%d';
 
     const FB_PAGEINFO_URL = '%sv%s/%s?access_token=%s';
-    const FB_APP_URL = '%sv%s/app?%s';
+    const FB_APP_URL = '%sv%s/app?access_token=%s';
     const FIELDS = 'id,name,timezone,start_time,end_time,description,place,cover';
     const CACHE_KEY = 'Module.FacebookEvents';
 
@@ -44,7 +44,7 @@ class FacebookEvents extends WireData implements Module, ConfigurableModule {
     return array(
       'title' => 'Facebook Events',
       'summary' => 'ProcessWire module to get Facebook Page Events using the Graph API.',
-      'version' => 004,
+      'version' => 005,
       'href' => 'https://github.com/justb3a/processwire-facebookevents',
       'icon' => 'facebook'
     );
@@ -52,9 +52,6 @@ class FacebookEvents extends WireData implements Module, ConfigurableModule {
 
   /**
    * Initialize the module
-   * Initialize a new web contact form
-   *
-   * Implementation of the Module interface
    *
    * ProcessWire calls this when the module is loaded. For 'autoload' modules, this will be called
    * when ProcessWire's API is ready. As a result, this is a good place to attach hooks.
@@ -148,7 +145,6 @@ class FacebookEvents extends WireData implements Module, ConfigurableModule {
     // test/update existing accessToken
     if (isset($this->data['accessToken'])) {
       $accessToken = $this->data['accessToken'];
-
       $http->getJSON(sprintf(self::FB_APP_URL, self::FB_GRAPH_URL, self::FB_GRAPH_VERSION, $accessToken));
       if ($http->getHttpCode() === 200) return $accessToken;
     }
