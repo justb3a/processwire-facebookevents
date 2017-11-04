@@ -16,7 +16,10 @@ class FacebookEventsConfig extends ModuleConfig {
       'pageName' => '',
       'cacheExpire' => 'daily',
       'accessToken' => '',
-      'limit' => 25
+      'limit' => 25,
+      'dateSince' => '',
+      'dateUntil' => '',
+      'sortReverse' => false
     );
   }
 
@@ -52,8 +55,8 @@ class FacebookEventsConfig extends ModuleConfig {
     $field = $this->modules->get('InputfieldText');
     $field->name = 'pageName';
     $field->label = __('Facebook Page Name');
-    $field->description = __('You can either enter the facebook page name or ID.');
-    $field->notes = __('https://www.facebook.com/XXX/');
+    $field->description = __('You can either enter the facebook page name (slug after main url) or numerical ID.');
+    $field->notes = __('https://www.facebook.com/[this-is-the-page-name]/ If the page name includes the ID, you can enter the ID only.');
     $field->required = 1;
     $field->columnWidth = 50;
     $inputfields->add($field);
@@ -63,7 +66,6 @@ class FacebookEventsConfig extends ModuleConfig {
     $field->name = 'pageId';
     $field->label = __('Facebook Page ID');
     $field->columnWidth = 50;
-    $field->collapsed = Inputfield::collapsedNoLocked;
     $inputfields->add($field);
 
     // Fb Access Token
@@ -94,6 +96,29 @@ class FacebookEventsConfig extends ModuleConfig {
     $field->label = __('Limit number of events');
     $field->columnWidth = 50;
     $field->required = 1;
+    $inputfields->add($field);
+
+    $field = $this->modules->get('InputfieldDatetime');
+    $field->name = 'dateSince';
+    $field->label = __('Show Dates Since');
+    $field->columnWidth = 50;
+    $field->dateInputFormat = 'm/d/y';
+    $field->datepicker = 3;
+    $inputfields->add($field);
+
+    $field = $this->modules->get('InputfieldDatetime');
+    $field->name = 'dateUntil';
+    $field->label = __('Show Dates Until');
+    $field->columnWidth = 50;
+    $field->dateInputFormat = 'm/d/y';
+    $field->datepicker = 3;
+    $inputfields->add($field);
+
+    $field = $this->modules->get('InputfieldCheckbox');
+    $field->attr('name', 'sortReverse');
+    $field->attr('value', 1);
+    $field->label = __('Reverse Sort?');
+    $field->description = __('Events by default are sorted newest to oldest. Check this to reverse the order.');
     $inputfields->add($field);
 
     return $inputfields;
